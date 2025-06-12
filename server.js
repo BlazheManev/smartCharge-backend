@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import cors from 'cors';
 import uploadRoute from './routes/upload.js';
+import evDataRoutes from './routes/evData.js';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use('/uploads', express.static(path.resolve('uploads')));
 
 // Routes
 app.use('/reports', uploadRoute);
+app.use('/api', evDataRoutes);
 
 // Connect MongoDB and start server
 mongoose.connect(process.env.MONGO_URI)
