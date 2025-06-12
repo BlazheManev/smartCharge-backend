@@ -76,14 +76,13 @@ router.get('/list', async (_req, res) => {
 router.get('/view/:id', async (req, res) => {
   try {
     const report = await Report.findById(req.params.id);
-    if (!report) return res.status(404).send('Report not found');
-
-    res.setHeader('Content-Type', 'text/html');
-    res.send(report.html);
+    if (!report) return res.status(404).send('Not found');
+    fs.readFile(report.path, 'utf8', (err, data) => {
+      if (err) return res.status(500).send('Failed to load file');
+      res.send(data);
+    });
   } catch (err) {
-    console.error('❌ View Error:', err);
-    res.status(500).send('Failed to load report');
+    res.status(500).send('Error loading report');
   }
 });
-
 export default router;
