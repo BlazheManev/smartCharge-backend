@@ -3,6 +3,7 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import Report from '../models/Report.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 const upload = multer();
@@ -75,14 +76,22 @@ router.get('/list', async (_req, res) => {
 // 📄 Serve HTML by ID
 router.get('/view/:id', async (req, res) => {
   try {
-    const report = await Report.findById(req.params.id);
-    if (!report) return res.status(404).send('Not found');
-    fs.readFile(report.path, 'utf8', (err, data) => {
-      if (err) return res.status(500).send('Failed to load file');
-      res.send(data);
-    });
+    const report = await Report.findById(req.params.id).lean();
+    if (!report) return res.status(404).json({ error: 'Not found' });
+
+    res.status(200).json(report); // Includes HTML as a string
   } catch (err) {
-    res.status(500).send('Error loading report');
+    console.error('❌ Error fetching report:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+router.get('/raw/:id', async (req, res) => {
+  const report = await Report.findById(req.params.id).lean();
+  if (!report) return res.status(404).send('Not found');
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.send(report.html);
+});
+
 export default router;
