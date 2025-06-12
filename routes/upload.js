@@ -44,12 +44,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     // 📝 Save new file
     fs.writeFileSync(fullPath, buffer);
 
-    // 💾 Save metadata
+    // 💾 Save metadata (and HTML string for frontend use)
     await Report.create({
       station_id,
       type,
       filename: timestampedName,
       path: fullPath,
+      html: buffer.toString(),
       uploaded_at: new Date(),
     });
 
@@ -63,11 +64,25 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // 📄 List reports
 router.get('/list', async (_req, res) => {
   try {
-    const reports = await Report.find({}, '-__v').sort({ uploaded_at: -1 });
+    const reports = await Report.find({}, '-__v -html').sort({ uploaded_at: -1 });
     res.json(reports);
   } catch (err) {
     console.error('❌ Listing Error:', err);
     res.status(500).json({ error: 'Failed to list reports' });
+  }
+});
+
+// 📄 Serve HTML by ID
+router.get('/view/:id', async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) return res.status(404).send('Report not found');
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(report.html);
+  } catch (err) {
+    console.error('❌ View Error:', err);
+    res.status(500).send('Failed to load report');
   }
 });
 
