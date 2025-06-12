@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
 
-const ReportSchema = new mongoose.Schema({
-  type: { type: String, required: true },
-  station_id: { type: String, required: true },
-  filename: { type: String, required: true },
-  originalName: String,
-  createdAt: { type: Date, default: Date.now },
+const reportSchema = new mongoose.Schema({
+  station_id: String,
+  type: String,
+  filename: String,
+  path: String,
+  uploaded_at: { type: Date, default: Date.now },
 });
 
-export default mongoose.model('Report', ReportSchema);
+export default mongoose.model('Report', reportSchema);
