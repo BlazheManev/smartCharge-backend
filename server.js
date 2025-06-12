@@ -1,6 +1,8 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import path from 'path';
+import cors from 'cors';
 import uploadRoute from './routes/upload.js';
 
 dotenv.config();
@@ -8,9 +10,17 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware
+app.use(cors());
 app.use(express.json());
+
+// Serve uploaded HTML files
+app.use('/uploads', express.static(path.resolve('uploads')));
+
+// Routes
 app.use('/reports', uploadRoute);
 
+// Connect MongoDB and start server
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('✅ Connected to MongoDB');

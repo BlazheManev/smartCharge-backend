@@ -5,7 +5,7 @@ const reportSchema = new mongoose.Schema({
   type: String,
   filename: String,
   path: String,
-  uploaded_at: { type: Date, default: Date.now },
+  uploaded_at: { type: Date, default: Date.now }
 });
 
 export default mongoose.model('Report', reportSchema);
