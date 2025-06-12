@@ -8,14 +8,16 @@ const router = express.Router();
 const upload = multer();
 
 const driftDir = path.join('uploads', 'ev_drift');
-const expectationsDir = path.join('uploads', 'ev_expectations');
+const expectationsDir = path.join('uploads', 'expectations');
 
+// Ensure upload folders exist
 [driftDir, expectationsDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 });
 
+// Upload HTML reports
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
     const { station_id, type } = req.body;
@@ -26,14 +28,15 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     const folder = type === 'drift' ? driftDir : expectationsDir;
-    const fullPath = path.join(folder, `${Date.now()}-${originalname}`);
+    const timestampedName = `${Date.now()}-${originalname}`;
+    const fullPath = path.join(folder, timestampedName);
 
     fs.writeFileSync(fullPath, buffer);
 
     await Report.create({
       station_id,
       type,
-      filename: originalname,
+      filename: timestampedName,
       path: fullPath,
     });
 
@@ -41,6 +44,31 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error('❌ Upload Error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// List all uploaded reports
+router.get('/list', async (req, res) => {
+  try {
+    const driftFiles = fs.readdirSync(driftDir);
+    const expectationFiles = fs.readdirSync(expectationsDir);
+
+    const driftReports = driftFiles.map(file => ({
+      station_id: file.split('_')[0],
+      type: 'drift',
+      filename: file,
+    }));
+
+    const expectationReports = expectationFiles.map(file => ({
+      station_id: file.split('_')[0],
+      type: 'expectation',
+      filename: file,
+    }));
+
+    res.json([...driftReports, ...expectationReports]);
+  } catch (err) {
+    console.error('❌ Listing Error:', err);
+    res.status(500).json({ error: 'Failed to list reports' });
   }
 });
 
