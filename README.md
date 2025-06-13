@@ -69,7 +69,7 @@ MONGO_URI=mongodb+srv://<your-uri>
 node server.js
 ```
 
-Server runs on [http://localhost:5000](http://localhost:5000)
+Server runs on [http://localhost:5000](http://localhost:3000)
 
 ---
 
@@ -84,7 +84,7 @@ docker build -t blazhe/smartcharge-backend:latest .
 ### Run container
 
 ```bash
-docker run -p 5000:5000 \
+docker run -p 3000:3000 \
   -e MONGO_URI="mongodb+srv://..." \
   blazhe/smartcharge-backend:latest
 ```
