@@ -38,12 +38,13 @@ router.post('/predict', async (req, res) => {
                 res.status(200).json({
                     station_id,
                     datetime,
-                    prediction: prediction.toFixed(2),
-                    status: prediction > 0.6
+                    prediction: prediction.toFixed(2),  // e.g. "0.12"
+                    probability: `${(prediction * 100).toFixed(1)}%`,
+                    status: prediction < 0.3
                         ? '✅ High chance it will be available'
-                        : prediction > 0.3
+                        : prediction < 0.6
                             ? '⚠️ Might be occupied'
-                            : '🚫 Likely not available',
+                            : '🚫 Likely occupied',
                 });
             } catch (err) {
                 console.error('❌ ONNX inference error:', err);
