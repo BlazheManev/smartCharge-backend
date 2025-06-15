@@ -14,7 +14,7 @@ RUN npm install --production
 COPY . .
 
 # Expose the port your backend runs on
-EXPOSE 5000
+EXPOSE 3000
 
 # Default ENV (can override with `-e` when running)
 ENV MONGO_URI=replace_me
