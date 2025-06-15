@@ -1,11 +1,12 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import { GridFSBucket } from 'mongodb';
 
 const router = express.Router();
 
-const MLModels = mongoose.connection.collection('ml_models');
+const db = mongoose.connection;
+const MLModels = db.collection('ml_models');
 
-// GET all ML models
 router.get('/ml-models', async (_req, res) => {
   try {
     const models = await MLModels.find({}).toArray();
@@ -15,5 +16,6 @@ router.get('/ml-models', async (_req, res) => {
     res.status(500).json({ error: 'Failed to fetch ML models' });
   }
 });
+
 
 export default router;
