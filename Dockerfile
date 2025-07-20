@@ -24,7 +24,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Set environment variables
-ENV MONGO_URI=replace_me
+ENV MONGO_URI=mongodb+srv://blazhe:Feri123feri@cluster0.j4co85k.mongodb.net/EV-AI?retryWrites=true&w=majority
 
 # Expose app port
 EXPOSE 3000

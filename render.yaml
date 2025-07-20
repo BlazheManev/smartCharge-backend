@@ -9,4 +9,4 @@ services:
     startCommand: node server.js
     envVars:
       - key: MONGO_URI
-        value: your-mongo-uri-here
+        value: mongodb+srv://blazhe:Feri123feri@cluster0.j4co85k.mongodb.net/EV-AI?retryWrites=true&w=majority
