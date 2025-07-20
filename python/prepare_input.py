@@ -34,9 +34,9 @@ except Exception:
     print("ERROR_DB_QUERY")
     sys.exit(1)
 
-if len(records) < window_size:
-    print("ERROR_NOT_ENOUGH_DATA")
-    sys.exit(1)
+#if len(records) < window_size:
+    #print("ERROR_NOT_ENOUGH_DATA")
+ #   sys.exit(1)
 
 records.reverse()
 available = np.array([rec["available"] for rec in records]).reshape(-1, 1)
