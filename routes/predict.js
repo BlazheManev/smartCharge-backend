@@ -1,60 +1,78 @@
-import express from 'express';
-import mongoose from 'mongoose';
-import { GridFSBucket } from 'mongodb';
-import { InferenceSession, Tensor } from 'onnxruntime-node';
+import express from "express";
+import mongoose from "mongoose";
+import { GridFSBucket } from "mongodb";
+import { InferenceSession, Tensor } from "onnxruntime-node";
+import { spawn } from "child_process";
 
 const router = express.Router();
 const db = mongoose.connection;
 
-router.post('/predict', async (req, res) => {
-    const { station_id, datetime } = req.body;
+router.post("/predict", async (req, res) => {
+  const { station_id, datetime } = req.body;
+  const windowSize = 24;
 
-    if (!station_id || !datetime) {
-        return res.status(400).json({ error: 'Missing station_id or timestamp' });
-    }
+  if (!station_id || !datetime) {
+    return res.status(400).json({ error: "Missing station_id or datetime" });
+  }
 
-    try {
-        const filename = `model_ev_${station_id}.onnx`;
-        const bucket = new GridFSBucket(db.db);
-        const downloadStream = bucket.openDownloadStreamByName(filename);
+  try {
+    // 1. Load ONNX model from GridFS
+    const bucket = new GridFSBucket(db.db);
+    const onnxFilename = `model_ev_${station_id}.onnx`;
 
-        let chunks = [];
-        downloadStream.on('data', chunk => chunks.push(chunk));
-        downloadStream.on('error', err => {
-            console.error('❌ GridFS error:', err);
-            return res.status(500).json({ error: 'Model not found in GridFS' });
-        });
+    const modelBuffer = await new Promise((resolve, reject) => {
+      const chunks = [];
+      const stream = bucket.openDownloadStreamByName(onnxFilename);
+      stream.on("data", (chunk) => chunks.push(chunk));
+      stream.on("end", () => resolve(Buffer.concat(chunks)));
+      stream.on("error", reject);
+    });
 
-        downloadStream.on('end', async () => {
-            try {
-                const buffer = Buffer.concat(chunks);
-                const session = await InferenceSession.create(buffer);
+    const session = await InferenceSession.create(modelBuffer);
 
-                // TODO: Use real preprocessing here
-                const dummyInput = new Tensor('float32', new Float32Array([0.5, 0.4, 0.6]), [1, 3, 1]);
-                const output = await session.run({ input: dummyInput });
-                const prediction = output.output.data[0];
+    // 2. Call Python script to prepare input using the .pkl pipeline
+    const python = spawn("python3", ["python/prepare_input.py", station_id, String(windowSize)]);
 
-                res.status(200).json({
-                    station_id,
-                    datetime,
-                    prediction: prediction.toFixed(2),  // e.g. "0.12"
-                    probability: `${(prediction * 100).toFixed(1)}%`,
-                    status: prediction < 0.3
-                        ? '✅ High chance it will be available'
-                        : prediction < 0.6
-                            ? '⚠️ Might be occupied'
-                            : '🚫 Likely occupied',
-                });
-            } catch (err) {
-                console.error('❌ ONNX inference error:', err);
-                res.status(500).json({ error: 'Prediction failed' });
-            }
-        });
-    } catch (err) {
-        console.error('❌ General error:', err);
-        res.status(500).json({ error: 'Internal error' });
-    }
+    let result = "";
+    let errorOutput = "";
+
+    python.stdout.on("data", (data) => (result += data.toString()));
+    python.stderr.on("data", (data) => (errorOutput += data.toString()));
+
+    python.on("close", async (code) => {
+      if (errorOutput || result.includes("ERROR")) {
+        console.error("❌ Python error:", errorOutput || result);
+        return res.status(500).json({ error: "Failed to prepare input data." });
+      }
+
+      // Parse Python output into ONNX input tensor
+      const inputValues = result.trim().split(",").map(parseFloat);
+      const inputTensor = new Tensor("float32", Float32Array.from(inputValues), [1, windowSize, 1]);
+
+      // 3. Run ONNX inference
+      const output = await session.run({ input: inputTensor });
+      const prediction = output.output.data[0];
+
+      // 4. Format response
+      const status =
+        prediction < 0.3
+          ? "✅ High chance it will be available"
+          : prediction < 0.6
+          ? "⚠️ Might be occupied"
+          : "🚫 Likely occupied";
+
+      return res.json({
+        station_id,
+        datetime,
+        prediction: prediction.toFixed(2),
+        probability: `${(prediction * 100).toFixed(1)}%`,
+        status,
+      });
+    });
+  } catch (err) {
+    console.error("❌ Prediction error:", err);
+    res.status(500).json({ error: "Prediction failed" });
+  }
 });
 
 export default router;
