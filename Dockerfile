@@ -1,15 +1,18 @@
-# Start from Node with OS-level tools (not alpine, because it lacks apt)
-FROM node:20-slim
+# Start from Node base with full Debian
+FROM node:20-bullseye
 
 # Set working directory
 WORKDIR /app
 
-# Install Python and pip
+# Install Python, pip, and dependencies safely
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip && \
-    pip3 install --upgrade pip
+    apt-get install -y python3 python3-pip python3-distutils && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy Node dependencies first
+# Upgrade pip (cleanly)
+RUN python3 -m pip install --upgrade pip
+
+# Copy Node.js dependencies first
 COPY package*.json ./
 RUN npm install
 
@@ -17,14 +20,14 @@ RUN npm install
 COPY requirements.txt ./
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the source code
+# Copy the full app
 COPY . .
 
 # Set environment variables
 ENV MONGO_URI=replace_me
 
-# Expose backend port
+# Expose app port
 EXPOSE 3000
 
-# Run your Node app
+# Run backend
 CMD ["node", "server.js"]
