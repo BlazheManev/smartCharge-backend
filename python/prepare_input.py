@@ -1,12 +1,11 @@
 # python/prepare_input.py
 
 import sys
-import pymongo
 import numpy as np
-import joblib
 import pickle
 from io import BytesIO
-from gridfs import GridFS  # ✅ Correct import
+from pymongo import MongoClient
+import gridfs  # ✅ same as your example
 
 # ✅ Step 1: Read CLI arguments
 if len(sys.argv) != 3:
@@ -19,10 +18,10 @@ window_size = int(sys.argv[2])
 # ✅ Step 2: Connect to MongoDB
 MONGO_URI = "mongodb+srv://blazhe:Feri123feri@cluster0.j4co85k.mongodb.net/EV-AI?retryWrites=true&w=majority"
 try:
-    client = pymongo.MongoClient(MONGO_URI)
-    db = client["EV-AI"]
-    fs = GridFS(db)  # ✅ Correct usage
-except Exception as e:
+    client = MongoClient(MONGO_URI)
+    db = client.get_default_database()
+    fs = gridfs.GridFS(db)  # ✅ THIS is the correct way
+except Exception:
     print("ERROR_DB_CONNECT")
     sys.exit(1)
 
@@ -31,7 +30,7 @@ col = db["ev_station_availability"]
 try:
     cursor = col.find({"station_id": station_id}).sort("timestamp", -1).limit(window_size)
     records = list(cursor)
-except Exception as e:
+except Exception:
     print("ERROR_DB_QUERY")
     sys.exit(1)
 
@@ -39,7 +38,7 @@ if len(records) < window_size:
     print("ERROR_NOT_ENOUGH_DATA")
     sys.exit(1)
 
-records.reverse()  # oldest → newest
+records.reverse()
 available = np.array([rec["available"] for rec in records]).reshape(-1, 1)
 
 # ✅ Step 4: Load pipeline from GridFS
@@ -53,14 +52,14 @@ if not pipeline_file:
 try:
     pipeline_data = pipeline_file.read()
     pipeline = pickle.load(BytesIO(pipeline_data))
-except Exception as e:
+except Exception:
     print("ERROR_PIPELINE_LOAD")
     sys.exit(1)
 
 # ✅ Step 5: Transform data using pipeline
 try:
     X, _ = pipeline.transform(available)
-except Exception as e:
+except Exception:
     print("ERROR_PIPELINE_FAILED")
     sys.exit(1)
 
