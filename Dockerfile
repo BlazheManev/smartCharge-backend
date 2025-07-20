@@ -1,23 +1,30 @@
-# Use official Node image
-FROM node:20-alpine
+# Start from Node with OS-level tools (not alpine, because it lacks apt)
+FROM node:20-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files separately for better caching
+# Install Python and pip
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    pip3 install --upgrade pip
+
+# Copy Node dependencies first
 COPY package*.json ./
+RUN npm install
 
-# Install production dependencies
-RUN npm install --production
+# Copy Python requirements and install them
+COPY requirements.txt ./
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copy all other source code
+# Copy the rest of the source code
 COPY . .
 
-# Expose the port your backend runs on
-EXPOSE 3000
-
-# Default ENV (can override with `-e` when running)
+# Set environment variables
 ENV MONGO_URI=replace_me
 
-# Start the app
-CMD ["node", "index.js"]
+# Expose backend port
+EXPOSE 3000
+
+# Run your Node app
+CMD ["node", "server.js"]
