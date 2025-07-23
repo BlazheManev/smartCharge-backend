@@ -5,7 +5,7 @@ import { spawn } from "child_process";
 const router = express.Router();
 
 // 🚀 GET /api/predict?stationId=abc&windowSize=24
-router.get("/", async (req, res) => {
+router.get("/predict", async (req, res) => {
   const { stationId, windowSize } = req.query;
 
   if (!stationId || !windowSize) {
