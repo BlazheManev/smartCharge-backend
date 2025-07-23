@@ -1,10 +1,16 @@
+// routes/predict.js
+import express from "express";
+import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
-import { spawn } from "child_process";
 
+const router = express.Router();
+
+// Required to resolve __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Absolute path to the Python script
 const scriptPath = path.join(__dirname, "../python/prepare_input.py");
 
 router.get("/predict", async (req, res) => {
@@ -42,3 +48,5 @@ router.get("/predict", async (req, res) => {
     res.status(500).json({ error: "Python execution error." });
   });
 });
+
+export default router;
