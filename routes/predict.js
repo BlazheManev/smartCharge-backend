@@ -1,10 +1,12 @@
-// routes/predict.js
-import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import { spawn } from "child_process";
 
-const router = express.Router();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// 🚀 GET /api/predict?stationId=abc&windowSize=24
+const scriptPath = path.join(__dirname, "../python/prepare_input.py");
+
 router.get("/predict", async (req, res) => {
   const { stationId, windowSize } = req.query;
 
@@ -13,7 +15,7 @@ router.get("/predict", async (req, res) => {
   }
 
   const pythonCmd = process.platform === "win32" ? "python" : "python3";
-  const py = spawn(pythonCmd, ["python/prepare_input.py", stationId, String(windowSize)]);
+  const py = spawn(pythonCmd, [scriptPath, stationId, String(windowSize)]);
 
   let result = "";
   let errorOutput = "";
@@ -30,7 +32,7 @@ router.get("/predict", async (req, res) => {
     if (code === 0) {
       res.json({ input: result.trim() });
     } else {
-      console.error("❌ Python stderr:", errorOutput);
+      console.error("❌ PYTHON STDERR:", errorOutput);
       res.status(500).json({ error: "Failed to prepare input data." });
     }
   });
@@ -40,5 +42,3 @@ router.get("/predict", async (req, res) => {
     res.status(500).json({ error: "Python execution error." });
   });
 });
-
-export default router;
