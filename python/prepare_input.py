@@ -15,21 +15,23 @@ DB_NAME = "EV-AI"
 COLL_AVAIL = "ev_station_availability"
 
 # ——— HELPERS —————————————————————————————
-def fetch_recent_data(db, station_id, timestamp, window_size):
+def fetch_recent_data(db, station_id, window_size):
     col = db[COLL_AVAIL]
     cursor = col.find({
-        "station_id": station_id,
-        "fetched_at": {"$lt": timestamp}
+        "station_id": station_id
     }).sort("fetched_at", -1).limit(window_size)
+    
     records = list(cursor)
     if len(records) < window_size:
         sys.stderr.write(f"❌ Not enough data. Found: {len(records)}\n")
         sys.exit("ERROR_NO_DATA")
-    records.reverse()
+
+    records.reverse() 
     df = pd.DataFrame([{
         "timestamp": rec["fetched_at"],
         "available": rec.get("available", rec.get("availability", [{}])[0] if isinstance(rec.get("availability"), list) else 0)
     } for rec in records])
+
     return df
 
 def load_from_gridfs(fs, filename):
@@ -65,7 +67,7 @@ def main():
     pipeline = joblib.load(load_from_gridfs(fs, pipe_name))
     sess = ort.InferenceSession(load_from_gridfs(fs, model_name).getvalue())
 
-    df = fetch_recent_data(db, station_id, timestamp, window_size)
+    df = fetch_recent_data(db, station_id, window_size)
     X, _ = pipeline.transform(df[["available"]])
 
     input_name = sess.get_inputs()[0].name
