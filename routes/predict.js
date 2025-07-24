@@ -5,12 +5,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const router = express.Router();
-
-// Required to resolve __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Absolute path to the Python script
 const scriptPath = path.join(__dirname, "../python/prepare_input.py");
 
 router.get("/predict", async (req, res) => {
@@ -36,9 +33,11 @@ router.get("/predict", async (req, res) => {
 
   py.on("close", (code) => {
     if (code === 0) {
+      console.log("✅ Python result:", result.trim());
       res.json({ input: result.trim() });
     } else {
-      console.error("❌ PYTHON STDERR:", errorOutput);
+      console.error("❌ Python exited with code:", code);
+      console.error("❌ Python stderr:", errorOutput || "(empty)");
       res.status(500).json({ error: "Failed to prepare input data." });
     }
   });
