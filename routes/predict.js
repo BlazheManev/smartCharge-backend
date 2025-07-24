@@ -1,4 +1,3 @@
-// routes/predict.js
 import express from "express";
 import { spawn } from "child_process";
 import path from "path";
@@ -11,14 +10,14 @@ const __dirname = path.dirname(__filename);
 const scriptPath = path.join(__dirname, "../python/prepare_input.py");
 
 router.get("/predict", async (req, res) => {
-  const { stationId, windowSize } = req.query;
+  const { stationId, windowSize, datetime } = req.query;
 
-  if (!stationId || !windowSize) {
-    return res.status(400).json({ error: "Missing stationId or windowSize." });
+  if (!stationId || !windowSize || !datetime) {
+    return res.status(400).json({ error: "Missing stationId, windowSize, or datetime." });
   }
 
   const pythonCmd = process.platform === "win32" ? "python" : "python3";
-  const py = spawn(pythonCmd, [scriptPath, stationId, String(windowSize)]);
+  const py = spawn(pythonCmd, [scriptPath, stationId, String(windowSize), datetime]);
 
   let result = "";
   let errorOutput = "";
@@ -33,12 +32,17 @@ router.get("/predict", async (req, res) => {
 
   py.on("close", (code) => {
     if (code === 0) {
-      console.log("✅ Python result:", result.trim());
-      res.json({ input: result.trim() });
+      try {
+        const parsed = JSON.parse(result);
+        res.json({ input: parsed.predicted });
+      } catch (err) {
+        console.error("❌ JSON parse failed:", err);
+        res.status(500).json({ error: "Invalid output from Python." });
+      }
     } else {
       console.error("❌ Python exited with code:", code);
       console.error("❌ Python stderr:", errorOutput || "(empty)");
-      res.status(500).json({ error: "Failed to prepare input data." });
+      res.status(500).json({ error: errorOutput || "Python script failed." });
     }
   });
 
