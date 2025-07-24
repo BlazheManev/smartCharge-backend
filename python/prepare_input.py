@@ -5,7 +5,7 @@ from io import BytesIO
 from pymongo import MongoClient
 import gridfs
 
-# ✅ Step 1: Parse CLI arguments
+# ✅ Step 1: Parse CLI args
 if len(sys.argv) != 3:
     sys.stderr.write("ERROR_BAD_ARGS\n")
     sys.exit(1)
@@ -23,16 +23,27 @@ except Exception as e:
     sys.stderr.write(f"ERROR_DB_CONNECT: {e}\n")
     sys.exit(1)
 
-# ✅ Step 3: Look up the pipeline filename from ml_models
+# ✅ Step 3: Look up ml_models for pipeline match
 model_doc = db.ml_models.find_one({"params.station": station_id})
 if not model_doc:
     sys.stderr.write(f"ERROR_MODEL_NOT_FOUND for station: {station_id}\n")
     sys.exit(1)
 
-filename = f"pipeline_ev_{model_doc['params']['station']}.pkl"
-sys.stderr.write(f"📁 Loading pipeline: {filename}\n")
+# Extract actual pipeline filename from GridFS
+pipeline_file = None
+pipeline_cursor = fs.find({})
+for file in pipeline_cursor:
+    if file.filename.endswith(".pkl") and model_doc["run_id"] in file.filename:
+        pipeline_file = file
+        break
 
-# ✅ Step 4: Get availability records
+if not pipeline_file:
+    sys.stderr.write("ERROR_PIPELINE_NOT_FOUND\n")
+    sys.exit(1)
+
+sys.stderr.write(f"✅ Using pipeline: {pipeline_file.filename}\n")
+
+# ✅ Step 4: Fetch station availability data
 try:
     col = db["ev_station_availability"]
     cursor = col.find({"station_id": station_id}).sort("timestamp", -1).limit(window_size)
@@ -48,34 +59,21 @@ if not records:
 records.reverse()
 available = [rec["available"] for rec in records]
 
-# ✅ Pad if too few records
+# ✅ Pad if too short
 if len(available) < window_size:
-    first_val = available[0]
-    padding = [first_val] * (window_size - len(available))
+    padding = [available[0]] * (window_size - len(available))
     available = padding + available
 
 available = np.array(available).reshape(-1, 1)
 
-# ✅ Step 5: Load pipeline from GridFS
-pipeline_file = fs.find_one({"filename": filename})
-if not pipeline_file:
-    sys.stderr.write("ERROR_PIPELINE_NOT_FOUND\n")
-    sys.exit(1)
-
+# ✅ Step 5: Load and apply pipeline
 try:
-    pipeline_data = pipeline_file.read()
-    pipeline = pickle.load(BytesIO(pipeline_data))
-except Exception as e:
-    sys.stderr.write(f"ERROR_PIPELINE_LOAD: {e}\n")
-    sys.exit(1)
-
-# ✅ Step 6: Transform input
-try:
+    pipeline = pickle.load(BytesIO(pipeline_file.read()))
     X, _ = pipeline.transform(available)
 except Exception as e:
     sys.stderr.write(f"ERROR_PIPELINE_FAILED: {e}\n")
     sys.exit(1)
 
-# ✅ Step 7: Output ONNX-ready input
+# ✅ Step 6: Output final input
 input_array = X[-1].flatten()
 print(",".join(str(x) for x in input_array))
