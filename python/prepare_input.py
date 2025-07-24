@@ -5,7 +5,7 @@ from io import BytesIO
 from pymongo import MongoClient
 import gridfs
 
-# ✅ Step 1: Read CLI arguments
+# ✅ Step 1: Parse CLI arguments
 if len(sys.argv) != 3:
     sys.stderr.write("ERROR_BAD_ARGS\n")
     sys.exit(1)
@@ -23,9 +23,17 @@ except Exception as e:
     sys.stderr.write(f"ERROR_DB_CONNECT: {e}\n")
     sys.exit(1)
 
-# ✅ Step 3: Fetch availability records
+# ✅ Step 3: Look up the pipeline filename from ml_models
+model_doc = db.ml_models.find_one({"params.station": station_id})
+if not model_doc:
+    sys.stderr.write(f"ERROR_MODEL_NOT_FOUND for station: {station_id}\n")
+    sys.exit(1)
+
+filename = f"pipeline_ev_{model_doc['params']['station']}.pkl"
+sys.stderr.write(f"📁 Loading pipeline: {filename}\n")
+
+# ✅ Step 4: Get availability records
 try:
-    sys.stderr.write(f"📦 Fetching records for station: {station_id}, window: {window_size}\n")
     col = db["ev_station_availability"]
     cursor = col.find({"station_id": station_id}).sort("timestamp", -1).limit(window_size)
     records = list(cursor)
@@ -40,7 +48,7 @@ if not records:
 records.reverse()
 available = [rec["available"] for rec in records]
 
-# ✅ Step 4: Pad if not enough records
+# ✅ Pad if too few records
 if len(available) < window_size:
     first_val = available[0]
     padding = [first_val] * (window_size - len(available))
@@ -49,10 +57,7 @@ if len(available) < window_size:
 available = np.array(available).reshape(-1, 1)
 
 # ✅ Step 5: Load pipeline from GridFS
-pipeline_filename = f"pipeline_ev_{station_id}.pkl"
-sys.stderr.write(f"🔍 Looking for pipeline: {pipeline_filename}\n")
-pipeline_file = fs.find_one({"filename": pipeline_filename})
-
+pipeline_file = fs.find_one({"filename": filename})
 if not pipeline_file:
     sys.stderr.write("ERROR_PIPELINE_NOT_FOUND\n")
     sys.exit(1)
@@ -71,6 +76,6 @@ except Exception as e:
     sys.stderr.write(f"ERROR_PIPELINE_FAILED: {e}\n")
     sys.exit(1)
 
-# ✅ Step 7: Output last transformed row
+# ✅ Step 7: Output ONNX-ready input
 input_array = X[-1].flatten()
 print(",".join(str(x) for x in input_array))
