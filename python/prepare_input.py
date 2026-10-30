@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import joblib
@@ -10,7 +11,7 @@ import pandas as pd
 from io import BytesIO
 
 # ——— CONFIG —————————————————————————————
-MONGO_URI = "mongodb+srv://blazhe:REDACTED@cluster0.j4co85k.mongodb.net/EV-AI?retryWrites=true&w=majority"
+MONGO_URI = os.environ["MONGO_URI"]
 DB_NAME = "EV-AI"
 COLL_AVAIL = "ev_station_availability"
 
